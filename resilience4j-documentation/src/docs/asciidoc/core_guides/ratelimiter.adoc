@@ -13,7 +13,7 @@ So it also have in-memory RateLimiterRegistry and RateLimiterConfig where you ca
 [source,java]
 ----
 // For example you want to restrict the calling rate of some method to be not higher than 10 req/ms.
-RateLimiterConfig config = RateLimiterConfig.builder()
+RateLimiterConfig config = RateLimiterConfig.custom()
     .limitRefreshPeriod(Duration.ofMillis(1))
     .limitForPeriod(10)
     .timeoutDuration(Duration.ofMillis(25))
@@ -74,7 +74,7 @@ The following example shows how to decorate an Observable by using the custom Rx
 ----
 RateLimiter rateLimiter = RateLimiter.ofDefaults("backendName");
 Observable.fromCallable(backendService::doSomething)
-    .lift(RateLimiterOperator.of(rateLimiter))
+    .compose(RateLimiterOperator.of(rateLimiter))
 ----
 
 Other reactive types (Flowable, Single, Maybe and Completable) are also supported.
@@ -87,7 +87,7 @@ The following example shows how to decorate a Mono by using the custom Reactor o
 ----
 RateLimiter rateLimiter = RateLimiter.ofDefaults("backendName");
 Mono.fromCallable(backendService::doSomething)
-    .transform(RateLimiterOperator.of(rateLimiter))
+    .compose(RateLimiterOperator.of(rateLimiter))
 ----
 
 Flux is also supported.
@@ -137,3 +137,4 @@ long nanosToWaitForPermission = atomicLimiter.getNanosToWait();
 
 If you're interested in making your own thing on top of Resilience4j RateLimiter you'll possibly be interested in
 our lower level APIs like `getPermission` and `reservePermission` methods.
+

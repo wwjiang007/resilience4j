@@ -25,9 +25,11 @@ import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.OptionalBinder;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.resilience4j.bulkhead.BulkheadRegistry;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.bulkhead.event.BulkheadEvent;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.event.CircuitBreakerEvent;
 import io.github.resilience4j.consumer.DefaultEventConsumerRegistry;
 import io.github.resilience4j.consumer.EventConsumerRegistry;
@@ -35,25 +37,24 @@ import io.github.resilience4j.metrics.BulkheadMetrics;
 import io.github.resilience4j.metrics.CircuitBreakerMetrics;
 import io.github.resilience4j.metrics.RateLimiterMetrics;
 import io.github.resilience4j.metrics.RetryMetrics;
-import io.github.resilience4j.prometheus.CircuitBreakerExports;
-import io.github.resilience4j.prometheus.RateLimiterExports;
+import io.github.resilience4j.prometheus.collectors.BulkheadMetricsCollector;
+import io.github.resilience4j.prometheus.collectors.CircuitBreakerMetricsCollector;
+import io.github.resilience4j.prometheus.collectors.RateLimiterMetricsCollector;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.github.resilience4j.ratelimiter.event.RateLimiterEvent;
-import io.github.resilience4j.ratpack.bulkhead.Bulkhead;
 import io.github.resilience4j.ratpack.bulkhead.BulkheadMethodInterceptor;
 import io.github.resilience4j.ratpack.bulkhead.endpoint.BulkheadChain;
-import io.github.resilience4j.ratpack.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratpack.circuitbreaker.CircuitBreakerMethodInterceptor;
 import io.github.resilience4j.ratpack.circuitbreaker.endpoint.CircuitBreakerChain;
-import io.github.resilience4j.ratpack.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratpack.ratelimiter.RateLimiterMethodInterceptor;
 import io.github.resilience4j.ratpack.ratelimiter.endpoint.RateLimiterChain;
-import io.github.resilience4j.ratpack.retry.Retry;
 import io.github.resilience4j.ratpack.retry.RetryMethodInterceptor;
 import io.github.resilience4j.ratpack.retry.endpoint.RetryChain;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.retry.event.RetryEvent;
 import io.prometheus.client.CollectorRegistry;
 import ratpack.dropwizard.metrics.DropwizardMetricsModule;
@@ -164,7 +165,7 @@ public class Resilience4jModule extends ConfigurableModule<Resilience4jConfig> {
         }
 
         @Override
-        public void onStart(StartEvent event) throws Exception {
+        public void onStart(StartEvent event) {
 
             EndpointsConfig endpointsConfig = event.getRegistry().get(Resilience4jConfig.class).getEndpoints();
 
@@ -268,10 +269,12 @@ public class Resilience4jModule extends ConfigurableModule<Resilience4jConfig> {
             // prometheus
             if (config.isPrometheus() && injector.getExistingBinding(Key.get(CollectorRegistry.class)) != null) {
                 CollectorRegistry collectorRegistry = injector.getInstance(CollectorRegistry.class);
-                CircuitBreakerExports circuitBreakerExports = CircuitBreakerExports.ofCircuitBreakerRegistry(circuitBreakerRegistry);
-                RateLimiterExports rateLimiterExports = RateLimiterExports.ofRateLimiterRegistry(rateLimiterRegistry);
-                circuitBreakerExports.register(collectorRegistry);
-                rateLimiterExports.register(collectorRegistry);
+                CircuitBreakerMetricsCollector circuitBreakerMetricsCollector = CircuitBreakerMetricsCollector.ofCircuitBreakerRegistry(circuitBreakerRegistry);
+                RateLimiterMetricsCollector rateLimiterMetricsCollector = RateLimiterMetricsCollector.ofRateLimiterRegistry(rateLimiterRegistry);
+                BulkheadMetricsCollector bulkheadMetricsCollector = BulkheadMetricsCollector.ofBulkheadRegistry(bulkheadRegistry);
+                circuitBreakerMetricsCollector.register(collectorRegistry);
+                rateLimiterMetricsCollector.register(collectorRegistry);
+                bulkheadMetricsCollector.register(collectorRegistry);
             }
 
         }

@@ -16,23 +16,28 @@
 package io.github.resilience4j.ratpack.ratelimiter.endpoint;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.github.resilience4j.core.lang.Nullable;
 import io.github.resilience4j.ratelimiter.event.RateLimiterEvent;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class RateLimiterEventDTO {
 
+    @Nullable
     private String rateLimiterName;
-    private RateLimiterEvent.Type rateLimiterEventType;
-    private String rateLimiterCreationTime;
+    @Nullable
+    private RateLimiterEvent.Type type;
+    @Nullable
+    private String creationTime;
 
     public static RateLimiterEventDTO createRateLimiterEventDTO(RateLimiterEvent rateLimiterEvent) {
         RateLimiterEventDTO dto = new RateLimiterEventDTO();
         dto.setRateLimiterName(rateLimiterEvent.getRateLimiterName());
-        dto.setRateLimiterEventType(rateLimiterEvent.getEventType());
-        dto.setRateLimiterCreationTime(rateLimiterEvent.getCreationTime().toString());
+        dto.setType(rateLimiterEvent.getEventType());
+        dto.setCreationTime(rateLimiterEvent.getCreationTime().toString());
         return dto;
     }
 
+    @Nullable
     public String getRateLimiterName() {
         return rateLimiterName;
     }
@@ -41,19 +46,21 @@ public class RateLimiterEventDTO {
         this.rateLimiterName = rateLimiterName;
     }
 
-    public RateLimiterEvent.Type getRateLimiterEventType() {
-        return rateLimiterEventType;
+    @Nullable
+    public RateLimiterEvent.Type getType() {
+        return type;
     }
 
-    public void setRateLimiterEventType(RateLimiterEvent.Type rateLimiterEventType) {
-        this.rateLimiterEventType = rateLimiterEventType;
+    public void setType(RateLimiterEvent.Type type) {
+        this.type = type;
     }
 
-    public String getRateLimiterCreationTime() {
-        return rateLimiterCreationTime;
+    @Nullable
+    public String getCreationTime() {
+        return creationTime;
     }
 
-    public void setRateLimiterCreationTime(String rateLimiterCreationTime) {
-        this.rateLimiterCreationTime = rateLimiterCreationTime;
+    public void setCreationTime(String creationTime) {
+        this.creationTime = creationTime;
     }
 }

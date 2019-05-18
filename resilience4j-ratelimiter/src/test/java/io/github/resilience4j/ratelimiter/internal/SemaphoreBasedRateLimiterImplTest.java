@@ -38,6 +38,7 @@ import static com.jayway.awaitility.Duration.FIVE_HUNDRED_MILLISECONDS;
 import static io.vavr.control.Try.run;
 import static java.lang.Thread.State.*;
 import static java.time.Duration.ZERO;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.mockito.ArgumentMatchers.eq;
@@ -49,7 +50,7 @@ public class SemaphoreBasedRateLimiterImplTest {
     private static final int LIMIT = 2;
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
     private static final Duration REFRESH_PERIOD = Duration.ofMillis(100);
-    private static final String CONFIG_MUST_NOT_BE_NULL = "RateLimiterConfig must not be null";
+    private static final String CONFIG_MUST_NOT_BE_NULL = "Config must not be null";
     private static final String NAME_MUST_NOT_BE_NULL = "Name must not be null";
     private static final Object O = new Object();
     @Rule
@@ -88,15 +89,15 @@ public class SemaphoreBasedRateLimiterImplTest {
 
         Runnable refreshLimitRunnable = refreshLimitRunnableCaptor.getValue();
 
-        then(limit.getPermission(ZERO)).isTrue();
+        then(limit.acquirePermission(ZERO)).isTrue();
         then(limit.reservePermission(ZERO)).isNegative();
         then(limit.reservePermission(TIMEOUT)).isNegative();
 
-        then(limit.getPermission(ZERO)).isTrue();
+        then(limit.acquirePermission(ZERO)).isTrue();
         then(limit.reservePermission(ZERO)).isNegative();
         then(limit.reservePermission(TIMEOUT)).isNegative();
 
-        then(limit.getPermission(ZERO)).isFalse();
+        then(limit.acquirePermission(ZERO)).isFalse();
         then(limit.reservePermission(ZERO)).isNegative();
         then(limit.reservePermission(TIMEOUT)).isNegative();
 
@@ -107,22 +108,23 @@ public class SemaphoreBasedRateLimiterImplTest {
 
         verify(configSpy, times(2)).getLimitForPeriod();
 
-        then(limit.getPermission(ZERO)).isTrue();
-        then(limit.getPermission(ZERO)).isTrue();
-        then(limit.getPermission(ZERO)).isFalse();
+        then(limit.acquirePermission(ZERO)).isTrue();
+        then(limit.acquirePermission(ZERO)).isTrue();
+        then(limit.acquirePermission(ZERO)).isFalse();
     }
 
     @Test
-    public void rateLimiterCreationWithDefaultScheduler() throws Exception {
+    public void rateLimiterCreationWithDefaultScheduler() {
         SemaphoreBasedRateLimiter limit = new SemaphoreBasedRateLimiter("test", config);
+        assertThat(limit.getName()).isEqualTo("test");
         awaitImpatiently().atMost(FIVE_HUNDRED_MILLISECONDS)
-            .until(() -> limit.getPermission(ZERO), equalTo(false));
+            .until(() -> limit.acquirePermission(ZERO), equalTo(false));
         awaitImpatiently().atMost(110, TimeUnit.MILLISECONDS)
-            .until(() -> limit.getPermission(ZERO), equalTo(true));
+            .until(() -> limit.acquirePermission(ZERO), equalTo(true));
     }
 
     @Test
-    public void getPermissionAndMetrics() throws Exception {
+    public void acquirePermissionAndMetrics() throws Exception {
 
         ScheduledExecutorService scheduledExecutorService = mock(ScheduledExecutorService.class);
         RateLimiterConfig configSpy = spy(config);
@@ -134,9 +136,9 @@ public class SemaphoreBasedRateLimiterImplTest {
             run(() -> {
                 for (int i = 0; i < LIMIT; i++) {
                     synchronousQueue.put(O);
-                    limit.getPermission(TIMEOUT);
+                    limit.acquirePermission(TIMEOUT);
                 }
-                limit.getPermission(TIMEOUT);
+                limit.acquirePermission(TIMEOUT);
             });
         });
         thread.setDaemon(true);
@@ -215,15 +217,16 @@ public class SemaphoreBasedRateLimiterImplTest {
     }
 
     @Test
-    public void getPermissionInterruption() throws Exception {
+    public void acquirePermissionInterruption() throws Exception {
         ScheduledExecutorService scheduledExecutorService = mock(ScheduledExecutorService.class);
         RateLimiterConfig configSpy = spy(config);
         SemaphoreBasedRateLimiter limit = new SemaphoreBasedRateLimiter("test", configSpy, scheduledExecutorService);
-        limit.getPermission(ZERO);
-        limit.getPermission(ZERO);
+        assertThat(limit.getName()).isEqualTo("test");
+        limit.acquirePermission(ZERO);
+        limit.acquirePermission(ZERO);
 
         Thread thread = new Thread(() -> {
-            limit.getPermission(TIMEOUT);
+            limit.acquirePermission(TIMEOUT);
             while (true) {
                 Function.identity().apply(1);
             }

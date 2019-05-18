@@ -2,14 +2,17 @@ package io.github.resilience4j.reactor;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.reactor.bulkhead.operator.BulkheadOperator;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import io.github.resilience4j.reactor.ratelimiter.operator.RateLimiterOperator;
+import io.github.resilience4j.reactor.retry.RetryOperator;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,13 +38,30 @@ public class CombinedOperatorsTest {
     private Bulkhead bulkhead = Bulkhead
             .of("test", BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitTime(0).build());
 
+    private final RetryConfig config = io.github.resilience4j.retry.RetryConfig.ofDefaults();
+    private final Retry retry = Retry.of("testName", config);
+    private final RetryOperator<String> retryOperator = RetryOperator.of(retry);
+
     @Test
     public void shouldEmitEvents() {
         StepVerifier.create(
                 Flux.just("Event 1", "Event 2")
-                        .transform(BulkheadOperator.of(bulkhead))
-                        .transform(RateLimiterOperator.of(rateLimiter))
-                        .transform(CircuitBreakerOperator.of(circuitBreaker))
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter))
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
+        ).expectNext("Event 1")
+                .expectNext("Event 2")
+                .verifyComplete();
+    }
+
+    @Test
+    public void shouldEmitEventsWithRetry() {
+        StepVerifier.create(
+                Flux.just("Event 1", "Event 2")
+                        .compose(retryOperator)
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter))
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
         ).expectNext("Event 1")
                 .expectNext("Event 2")
                 .verifyComplete();
@@ -51,9 +71,21 @@ public class CombinedOperatorsTest {
     public void shouldEmitEvent() {
         StepVerifier.create(
                 Mono.just("Event 1")
-                        .transform(BulkheadOperator.of(bulkhead))
-                        .transform(RateLimiterOperator.of(rateLimiter))
-                        .transform(CircuitBreakerOperator.of(circuitBreaker))
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter))
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
+        ).expectNext("Event 1")
+                .verifyComplete();
+    }
+
+    @Test
+    public void shouldEmitEventWithRetry() {
+        StepVerifier.create(
+                Mono.just("Event 1")
+                        .compose(retryOperator)
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter))
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
         ).expectNext("Event 1")
                 .verifyComplete();
     }
@@ -62,9 +94,9 @@ public class CombinedOperatorsTest {
     public void shouldPropagateError() {
         StepVerifier.create(
                 Flux.error(new IOException("BAM!"))
-                        .transform(BulkheadOperator.of(bulkhead))
-                        .transform(RateLimiterOperator.of(rateLimiter))
-                        .transform(CircuitBreakerOperator.of(circuitBreaker))
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter))
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
         ).expectError(IOException.class)
                 .verify(Duration.ofSeconds(1));
     }
@@ -74,10 +106,10 @@ public class CombinedOperatorsTest {
         circuitBreaker.transitionToOpenState();
         StepVerifier.create(
                 Flux.error(new IOException("BAM!"))
-                        .transform(CircuitBreakerOperator.of(circuitBreaker))
-                        .transform(BulkheadOperator.of(bulkhead, Schedulers.immediate()))
-                        .transform(RateLimiterOperator.of(rateLimiter, Schedulers.immediate()))
-        ).expectError(CircuitBreakerOpenException.class)
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter, Schedulers.immediate()))
+        ).expectError(CallNotPermittedException.class)
                 .verify(Duration.ofSeconds(1));
     }
 
@@ -86,10 +118,10 @@ public class CombinedOperatorsTest {
         circuitBreaker.transitionToOpenState();
         StepVerifier.create(
                 Flux.error(new IOException("BAM!"), true)
-                        .transform(CircuitBreakerOperator.of(circuitBreaker))
-                        .transform(BulkheadOperator.of(bulkhead, Schedulers.immediate()))
-                        .transform(RateLimiterOperator.of(rateLimiter, Schedulers.immediate()))
-        ).expectError(CircuitBreakerOpenException.class)
+                        .compose(CircuitBreakerOperator.of(circuitBreaker))
+                        .compose(BulkheadOperator.of(bulkhead))
+                        .compose(RateLimiterOperator.of(rateLimiter, Schedulers.immediate()))
+        ).expectError(CallNotPermittedException.class)
                 .verify(Duration.ofSeconds(1));
     }
 }
