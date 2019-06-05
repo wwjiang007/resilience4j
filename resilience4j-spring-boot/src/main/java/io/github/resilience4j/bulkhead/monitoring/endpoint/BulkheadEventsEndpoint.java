@@ -16,6 +16,9 @@
 package io.github.resilience4j.bulkhead.monitoring.endpoint;
 
 import io.github.resilience4j.bulkhead.event.BulkheadEvent;
+import io.github.resilience4j.common.bulkhead.monitoring.endpoint.BulkheadEventDTO;
+import io.github.resilience4j.common.bulkhead.monitoring.endpoint.BulkheadEventDTOFactory;
+import io.github.resilience4j.common.bulkhead.monitoring.endpoint.BulkheadEventsEndpointResponse;
 import io.github.resilience4j.consumer.CircularEventConsumer;
 import io.github.resilience4j.consumer.EventConsumerRegistry;
 import io.vavr.collection.List;
@@ -44,7 +47,7 @@ public class BulkheadEventsEndpoint {
         java.util.List<BulkheadEventDTO> response = eventConsumerRegistry.getAllEventConsumer()
                 .flatMap(CircularEventConsumer::getBufferedEvents)
                 .sorted(Comparator.comparing(BulkheadEvent::getCreationTime))
-                .map(BulkheadEventDTOFactory::createBulkheadEventDTOFactory)
+                .map(BulkheadEventDTOFactory::createBulkheadEventDTO)
                 .toJavaList();
 
         return new BulkheadEventsEndpointResponse(response);
@@ -54,7 +57,7 @@ public class BulkheadEventsEndpoint {
     @ResponseBody
     public BulkheadEventsEndpointResponse getEventsFilteredByBulkheadName(@PathVariable("bulkheadName") String bulkheadName) {
         java.util.List<BulkheadEventDTO> response = getBulkheadEvent(bulkheadName)
-                .map(BulkheadEventDTOFactory::createBulkheadEventDTOFactory)
+                .map(BulkheadEventDTOFactory::createBulkheadEventDTO)
                 .toJavaList();
 
         return new BulkheadEventsEndpointResponse(response);
@@ -66,7 +69,7 @@ public class BulkheadEventsEndpoint {
                                                                                             @PathVariable("eventType") String eventType) {
         java.util.List<BulkheadEventDTO> response = getBulkheadEvent(bulkheadName)
                 .filter(event -> event.getEventType() == BulkheadEvent.Type.valueOf(eventType.toUpperCase()))
-                .map(BulkheadEventDTOFactory::createBulkheadEventDTOFactory)
+                .map(BulkheadEventDTOFactory::createBulkheadEventDTO)
                 .toJavaList();
 
         return new BulkheadEventsEndpointResponse(response);

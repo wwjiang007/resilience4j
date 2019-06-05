@@ -18,9 +18,9 @@ package io.github.resilience4j.ratelimiter;
 import io.github.resilience4j.ratelimiter.autoconfigure.RateLimiterProperties;
 import io.github.resilience4j.ratelimiter.configure.RateLimiterAspect;
 import io.github.resilience4j.ratelimiter.event.RateLimiterEvent;
-import io.github.resilience4j.ratelimiter.monitoring.endpoint.RateLimiterEndpointResponse;
-import io.github.resilience4j.ratelimiter.monitoring.endpoint.RateLimiterEventDTO;
-import io.github.resilience4j.ratelimiter.monitoring.endpoint.RateLimiterEventsEndpointResponse;
+import io.github.resilience4j.common.ratelimiter.monitoring.endpoint.RateLimiterEndpointResponse;
+import io.github.resilience4j.common.ratelimiter.monitoring.endpoint.RateLimiterEventDTO;
+import io.github.resilience4j.common.ratelimiter.monitoring.endpoint.RateLimiterEventsEndpointResponse;
 import io.github.resilience4j.service.test.DummyService;
 import io.github.resilience4j.service.test.TestApplication;
 import io.prometheus.client.CollectorRegistry;
@@ -104,7 +104,7 @@ public class RateLimiterAutoConfigurationTest {
         ResponseEntity<RateLimiterEndpointResponse> rateLimiterList = restTemplate
             .getForEntity("/ratelimiter", RateLimiterEndpointResponse.class);
 
-        assertThat(rateLimiterList.getBody().getRateLimitersNames()).hasSize(2).containsExactly("backendA", "backendB");
+        assertThat(rateLimiterList.getBody().getRateLimiters()).hasSize(2).containsExactly("backendA", "backendB");
 
         try {
             for (int i = 0; i < 11; i++) {
@@ -117,7 +117,7 @@ public class RateLimiterAutoConfigurationTest {
         ResponseEntity<RateLimiterEventsEndpointResponse> rateLimiterEventList = restTemplate
             .getForEntity("/ratelimiter/events", RateLimiterEventsEndpointResponse.class);
 
-        List<RateLimiterEventDTO> eventsList = rateLimiterEventList.getBody().getEventsList();
+        List<RateLimiterEventDTO> eventsList = rateLimiterEventList.getBody().getRateLimiterEvents();
         assertThat(eventsList).isNotEmpty();
         RateLimiterEventDTO lastEvent = eventsList.get(eventsList.size() - 1);
         assertThat(lastEvent.getType()).isEqualTo(RateLimiterEvent.Type.FAILED_ACQUIRE);

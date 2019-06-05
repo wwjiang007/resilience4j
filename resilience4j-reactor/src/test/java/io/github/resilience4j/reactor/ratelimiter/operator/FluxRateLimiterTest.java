@@ -21,7 +21,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
@@ -40,7 +39,7 @@ public class FluxRateLimiterTest {
 
     @Test
     public void shouldEmitEvent() {
-        given(rateLimiter.acquirePermission(Duration.ZERO)).willReturn(true);
+        given(rateLimiter.reservePermission()).willReturn(Duration.ofSeconds(0).toNanos());
 
         StepVerifier.create(
                 Flux.just("Event 1", "Event 2")
@@ -51,8 +50,21 @@ public class FluxRateLimiterTest {
     }
 
     @Test
+    public void shouldDelaySubscription() {
+        given(rateLimiter.reservePermission()).willReturn(Duration.ofSeconds(2).toNanos());
+
+        StepVerifier.create(
+                Flux.error(new IOException("BAM!"))
+                        .log()
+                        .compose(RateLimiterOperator.of(rateLimiter)))
+                .expectSubscription()
+                .expectError(IOException.class)
+                .verify(Duration.ofSeconds(3));
+    }
+
+    @Test
     public void shouldPropagateError() {
-        given(rateLimiter.acquirePermission(Duration.ZERO)).willReturn(true);
+        given(rateLimiter.reservePermission()).willReturn(Duration.ofSeconds(0).toNanos());
 
         StepVerifier.create(
                 Flux.error(new IOException("BAM!"))
@@ -65,11 +77,11 @@ public class FluxRateLimiterTest {
 
     @Test
     public void shouldEmitRequestNotPermittedException() {
-        given(rateLimiter.acquirePermission(Duration.ZERO)).willReturn(false);
+        given(rateLimiter.reservePermission()).willReturn(-1L);
 
         StepVerifier.create(
                 Flux.just("Event")
-                        .compose(RateLimiterOperator.of(rateLimiter, Schedulers.immediate())))
+                        .compose(RateLimiterOperator.of(rateLimiter)))
                 .expectSubscription()
                 .expectError(RequestNotPermitted.class)
                 .verify(Duration.ofSeconds(1));
@@ -77,7 +89,7 @@ public class FluxRateLimiterTest {
 
     @Test
     public void shouldEmitRequestNotPermittedExceptionEvenWhenErrorDuringSubscribe() {
-        given(rateLimiter.acquirePermission(Duration.ZERO)).willReturn(false);
+        given(rateLimiter.reservePermission()).willReturn(-1L);
 
         StepVerifier.create(
                 Flux.error(new IOException("BAM!"))
